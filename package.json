@@ -1,8 +1,10 @@
 {
   "name": "vue-set-get",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "ractive style set()/get() in vue",
-  "files": [ "dist/index.js" ],
+  "files": [
+    "dist/index.js"
+  ],
   "main": "dist/index.js",
   "scripts": {
     "build": "rollup -c rollup.config.js",
