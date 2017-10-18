@@ -68,7 +68,8 @@ new Vuex.Store(_.extend({
   }
   // ...
 }
-// now when input changed, `linkVuexState()` will commit `SET_STATE` to change the value of `$store.state.a.b.c.d`
+// now when input changed, `linkVuexState()` will commit `SET_STATE`
+// to change the value of `$store.state.a.b.c.d`
 ```
 
 
