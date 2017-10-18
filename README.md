@@ -60,7 +60,7 @@ new Vuex.Store(_.extend({
 // 3.2. use `linkVuexState()` in v-model
 // you must use it as computed prop since syntax like
 // <input v-model="linkVuexState('a.b.c.d')">
-// is unfortunately unsupported by Vue
+// is unfortunately not supported by Vue
 
 // so write you template as
 // <input v-model="linkStateABCD">
