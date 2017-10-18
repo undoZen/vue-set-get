@@ -54,11 +54,17 @@ new Vuex.Store(_.extend({
 }, vuexStoreMixin))
 
 // 3.1. use `vm.vuexState()` in vue template
+// which is installed by vuexPlugin above
 // <span>{{vuexState('a.b.c.d')}}</span>
 
 // 3.2. use `linkVuexState()` in v-model
+// you must use it as computed prop since syntax like
+// <input v-model="linkVuexState('a.b.c.d')">
+// is unfortunately unsupported by Vue
+
+// so write you template as
 // <input v-model="linkStateABCD">
-// in component definition
+// and in component definition:
 {
   data () {
     return {}
