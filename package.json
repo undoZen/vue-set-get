@@ -1,0 +1,37 @@
+{
+  "name": "vue-set-get",
+  "version": "0.0.0",
+  "description": "ractive style set()/get() in vue",
+  "files": [ "dist/index.js" ],
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rollup -c rollup.config.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/undoZen/vue-set-get.git"
+  },
+  "keywords": [
+    "vue",
+    "set",
+    "get",
+    "object",
+    "keypath"
+  ],
+  "author": "undoZen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/undoZen/vue-set-get/issues"
+  },
+  "homepage": "https://github.com/undoZen/vue-set-get#readme",
+  "devDependencies": {
+    "lodash": "^4.17.4",
+    "lodash-es": "^4.17.4",
+    "rollup": "^0.50.0",
+    "rollup-plugin-node-resolve": "^3.0.0"
+  },
+  "peerDependencies": {
+    "vue": "^2"
+  }
+}
