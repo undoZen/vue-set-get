@@ -59,6 +59,12 @@ export const vuexPlugin = {
   install (Vue) {
     Vue.mixin({
       methods: {
+        $setVuexState (keyPath, data) {
+          this.$store.commit('SET_STATE', {
+            keyPath,
+            data
+          })
+        },
         vuexState (deepProps, defaultValue) {
           return get(this.$store.state, deepProps, defaultValue)
         },

@@ -1170,6 +1170,12 @@ const vuexPlugin = {
   install (Vue$$1) {
     Vue$$1.mixin({
       methods: {
+        $setVuexState (keyPath, data) {
+          this.$store.commit('SET_STATE', {
+            keyPath,
+            data
+          });
+        },
         vuexState (deepProps, defaultValue) {
           return get(this.$store.state, deepProps, defaultValue)
         },

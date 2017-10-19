@@ -76,8 +76,15 @@ new Vuex.Store(_.extend({
 }
 // now when input changed, `linkVuexState()` will commit `SET_STATE`
 // to change the value of `$store.state.a.b.c.d`
+
+in 1.1.0 you can write
+// <input :value="vuexState('a.b.c.d')" @input="$setVuexState('a.b.c.d', $event.target.input)">
+to avoid creating a computed property in vue file definition.
 ```
 
+# Changelog
+## 1.1
+add $setVuexState() in vuexPlugin.
 
 # License
 MIT
