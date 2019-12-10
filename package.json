@@ -35,5 +35,8 @@
   },
   "peerDependencies": {
     "vue": "^2"
+  },
+  "dependencies": {
+    "vue": "^2.6.10"
   }
 }
