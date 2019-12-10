@@ -3282,12 +3282,12 @@ function linkVuexState(keyPath, defaultValue) {
       this.$watch(
         () => this.vuexState(keyPath),
         val => {
-          if (val.__ob__ && breakLoop === val.__ob__.dep.id) {
+          if (val && val.__ob__ && breakLoop === val.__ob__.dep.id) {
             breakLoop = null;
             return
           }
           const nval = Vue.observable(cloneDeep(val));
-          breakLoop = nval.__ob__.dep.id;
+          breakLoop = nval && nval.__ob__ && nval.__ob__.dep.id;
           Vue.set(_localMirroredVuexState, keyPath, nval);
         },
         { deep: true }
@@ -3295,13 +3295,13 @@ function linkVuexState(keyPath, defaultValue) {
       this.$watch(
         () => _localMirroredVuexState[keyPath],
         val => {
-          if (val.__ob__ && breakLoop === val.__ob__.dep.id) {
+          if (val && val.__ob__ && breakLoop === val.__ob__.dep.id) {
             breakLoop = null;
             return
           }
           const nval = Vue.observable(cloneDeep(val));
           // _localMirroredVuexState[keyPath] = cdg
-          breakLoop = nval.__ob__.dep.id;
+          breakLoop = nval && nval.__ob__ && nval.__ob__.dep.id;
           // eslint-disable-next-line no-debugger
           // debugger
           this.$store.commit('SET_STATE', {
