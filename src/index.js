@@ -5,6 +5,7 @@ import toKey from 'lodash-es/_toKey.js'
 import get from 'lodash-es/get.js'
 import merge from 'lodash-es/merge.js'
 import cloneDeep from 'lodash-es/cloneDeep.js'
+import debounce from 'lodash-es/debounce.js'
 import Vue from 'vue'
 
 export function set(object, path, value) {
@@ -101,8 +102,10 @@ export function hasOwn(obj, key) {
 }
 
 export function linkVuexState(keyPath, defaultValue) {
-  let breakLoopStore = null
-  let breakLoopLocal = null
+  let breakLoop = null
+  const resetBreakLoop = debounce(() => {
+    breakLoop = null
+  })
   return {
     get() {
       let got = this.vuexState(keyPath, defaultValue)
@@ -126,11 +129,12 @@ export function linkVuexState(keyPath, defaultValue) {
       this.$watch(
         () => this.vuexState(keyPath),
         val => {
-          if (val && val.__ob__ && breakLoopLocal === val.__ob__.dep.id) {
+          if (val && val.__ob__ && breakLoop === val.__ob__.dep.id) {
+            resetBreakLoop()
             return
           }
           const nval = Vue.observable(cloneDeep(val))
-          breakLoopStore = nval && nval.__ob__ && nval.__ob__.dep.id
+          breakLoop = nval && nval.__ob__ && nval.__ob__.dep.id
           Vue.set(_localMirroredVuexState, keyPath, nval)
         },
         { deep: true }
@@ -138,11 +142,12 @@ export function linkVuexState(keyPath, defaultValue) {
       this.$watch(
         () => _localMirroredVuexState[keyPath],
         val => {
-          if (val && val.__ob__ && breakLoopStore === val.__ob__.dep.id) {
+          if (val && val.__ob__ && breakLoop === val.__ob__.dep.id) {
+            resetBreakLoop()
             return
           }
           const nval = Vue.observable(cloneDeep(val))
-          breakLoopLocal = nval && nval.__ob__ && nval.__ob__.dep.id
+          breakLoop = nval && nval.__ob__ && nval.__ob__.dep.id
           this.$store.commit('SET_STATE', {
             keyPath,
             data: nval,
