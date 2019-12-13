@@ -3258,7 +3258,8 @@ function hasOwn(obj, key) {
 }
 
 function linkVuexState(keyPath, defaultValue) {
-  let breakLoop = null;
+  let breakLoopStore = null;
+  let breakLoopLocal = null;
   return {
     get() {
       let got = this.vuexState(keyPath, defaultValue);
@@ -3282,12 +3283,11 @@ function linkVuexState(keyPath, defaultValue) {
       this.$watch(
         () => this.vuexState(keyPath),
         val => {
-          if (val && val.__ob__ && breakLoop === val.__ob__.dep.id) {
-            breakLoop = null;
+          if (val && val.__ob__ && breakLoopLocal === val.__ob__.dep.id) {
             return
           }
           const nval = Vue.observable(cloneDeep(val));
-          breakLoop = nval && nval.__ob__ && nval.__ob__.dep.id;
+          breakLoopStore = nval && nval.__ob__ && nval.__ob__.dep.id;
           Vue.set(_localMirroredVuexState, keyPath, nval);
         },
         { deep: true }
@@ -3295,15 +3295,11 @@ function linkVuexState(keyPath, defaultValue) {
       this.$watch(
         () => _localMirroredVuexState[keyPath],
         val => {
-          if (val && val.__ob__ && breakLoop === val.__ob__.dep.id) {
-            breakLoop = null;
+          if (val && val.__ob__ && breakLoopStore === val.__ob__.dep.id) {
             return
           }
           const nval = Vue.observable(cloneDeep(val));
-          // _localMirroredVuexState[keyPath] = cdg
-          breakLoop = nval && nval.__ob__ && nval.__ob__.dep.id;
-          // eslint-disable-next-line no-debugger
-          // debugger
+          breakLoopLocal = nval && nval.__ob__ && nval.__ob__.dep.id;
           this.$store.commit('SET_STATE', {
             keyPath,
             data: nval,
