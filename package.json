@@ -28,8 +28,7 @@
   },
   "homepage": "https://github.com/undoZen/vue-set-get#readme",
   "devDependencies": {
-    "lodash": "^4.17.4",
-    "lodash-es": "^4.17.4",
+    "lodash-es": "^4.17.15",
     "rollup": "^0.50.0",
     "rollup-plugin-node-resolve": "^3.0.0"
   },

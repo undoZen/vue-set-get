@@ -907,7 +907,6 @@ function memoizeCapped(func) {
 }
 
 /** Used to match property names within property paths. */
-var reLeadingDot = /^\./;
 var rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g;
 
 /** Used to match backslashes in property paths. */
@@ -922,11 +921,11 @@ var reEscapeChar = /\\(\\)?/g;
  */
 var stringToPath = memoizeCapped(function(string) {
   var result = [];
-  if (reLeadingDot.test(string)) {
+  if (string.charCodeAt(0) === 46 /* . */) {
     result.push('');
   }
-  string.replace(rePropName, function(match, number, quote, string) {
-    result.push(quote ? string.replace(reEscapeChar, '$1') : (number || match));
+  string.replace(rePropName, function(match, number, quote, subString) {
+    result.push(quote ? subString.replace(reEscapeChar, '$1') : (number || match));
   });
   return result;
 });
@@ -1037,10 +1036,13 @@ var reIsUint = /^(?:0|[1-9]\d*)$/;
  * @returns {boolean} Returns `true` if `value` is a valid index, else `false`.
  */
 function isIndex(value, length) {
+  var type = typeof value;
   length = length == null ? MAX_SAFE_INTEGER : length;
+
   return !!length &&
-    (typeof value == 'number' || reIsUint.test(value)) &&
-    (value > -1 && value % 1 == 0 && value < length);
+    (type == 'number' ||
+      (type != 'symbol' && reIsUint.test(value))) &&
+        (value > -1 && value % 1 == 0 && value < length);
 }
 
 /** Used as references for various `Number` constants. */
@@ -1780,6 +1782,14 @@ var freeProcess = moduleExports$2 && freeGlobal.process;
 /** Used to access faster Node.js helpers. */
 var nodeUtil = (function() {
   try {
+    // Use `util.types` for Node.js 10+.
+    var types = freeModule$2 && freeModule$2.require && freeModule$2.require('util').types;
+
+    if (types) {
+      return types;
+    }
+
+    // Legacy `process.binding('util')` for Node.js < 10.
     return freeProcess && freeProcess.binding && freeProcess.binding('util');
   } catch (e) {}
 }());
@@ -1805,6 +1815,26 @@ var nodeIsTypedArray = nodeUtil && nodeUtil.isTypedArray;
  * // => false
  */
 var isTypedArray = nodeIsTypedArray ? baseUnary(nodeIsTypedArray) : baseIsTypedArray;
+
+/**
+ * Gets the value at `key`, unless `key` is "__proto__" or "constructor".
+ *
+ * @private
+ * @param {Object} object The object to query.
+ * @param {string} key The key of the property to get.
+ * @returns {*} Returns the property value.
+ */
+function safeGet(object, key) {
+  if (key === 'constructor' && typeof object[key] === 'function') {
+    return;
+  }
+
+  if (key == '__proto__') {
+    return;
+  }
+
+  return object[key];
+}
 
 /** Used for built-in method references. */
 var objectProto$8 = Object.prototype;
@@ -2044,8 +2074,8 @@ function toPlainObject(value) {
  *  counterparts.
  */
 function baseMergeDeep(object, source, key, srcIndex, mergeFunc, customizer, stack) {
-  var objValue = object[key],
-      srcValue = source[key],
+  var objValue = safeGet(object, key),
+      srcValue = safeGet(source, key),
       stacked = stack.get(srcValue);
 
   if (stacked) {
@@ -2088,7 +2118,7 @@ function baseMergeDeep(object, source, key, srcIndex, mergeFunc, customizer, sta
       if (isArguments(objValue)) {
         newValue = toPlainObject(objValue);
       }
-      else if (!isObject(objValue) || (srcIndex && isFunction(objValue))) {
+      else if (!isObject(objValue) || isFunction(objValue)) {
         newValue = initCloneObject(srcValue);
       }
     }
@@ -2121,13 +2151,13 @@ function baseMerge(object, source, srcIndex, customizer, stack) {
     return;
   }
   baseFor(source, function(srcValue, key) {
+    stack || (stack = new Stack);
     if (isObject(srcValue)) {
-      stack || (stack = new Stack);
       baseMergeDeep(object, source, key, srcIndex, baseMerge, customizer, stack);
     }
     else {
       var newValue = customizer
-        ? customizer(object[key], srcValue, (key + ''), object, source, stack)
+        ? customizer(safeGet(object, key), srcValue, (key + ''), object, source, stack)
         : undefined;
 
       if (newValue === undefined) {
@@ -2762,7 +2792,7 @@ var hasOwnProperty$11 = objectProto$13.hasOwnProperty;
  */
 function initCloneArray(array) {
   var length = array.length,
-      result = array.constructor(length);
+      result = new array.constructor(length);
 
   // Add properties assigned by `RegExp#exec`.
   if (length && typeof array[0] == 'string' && hasOwnProperty$11.call(array, 'index')) {
@@ -2785,79 +2815,6 @@ function cloneDataView(dataView, isDeep) {
   return new dataView.constructor(buffer, dataView.byteOffset, dataView.byteLength);
 }
 
-/**
- * Adds the key-value `pair` to `map`.
- *
- * @private
- * @param {Object} map The map to modify.
- * @param {Array} pair The key-value pair to add.
- * @returns {Object} Returns `map`.
- */
-function addMapEntry(map, pair) {
-  // Don't return `map.set` because it's not chainable in IE 11.
-  map.set(pair[0], pair[1]);
-  return map;
-}
-
-/**
- * A specialized version of `_.reduce` for arrays without support for
- * iteratee shorthands.
- *
- * @private
- * @param {Array} [array] The array to iterate over.
- * @param {Function} iteratee The function invoked per iteration.
- * @param {*} [accumulator] The initial value.
- * @param {boolean} [initAccum] Specify using the first element of `array` as
- *  the initial value.
- * @returns {*} Returns the accumulated value.
- */
-function arrayReduce(array, iteratee, accumulator, initAccum) {
-  var index = -1,
-      length = array == null ? 0 : array.length;
-
-  if (initAccum && length) {
-    accumulator = array[++index];
-  }
-  while (++index < length) {
-    accumulator = iteratee(accumulator, array[index], index, array);
-  }
-  return accumulator;
-}
-
-/**
- * Converts `map` to its key-value pairs.
- *
- * @private
- * @param {Object} map The map to convert.
- * @returns {Array} Returns the key-value pairs.
- */
-function mapToArray(map) {
-  var index = -1,
-      result = Array(map.size);
-
-  map.forEach(function(value, key) {
-    result[++index] = [key, value];
-  });
-  return result;
-}
-
-/** Used to compose bitmasks for cloning. */
-var CLONE_DEEP_FLAG$2 = 1;
-
-/**
- * Creates a clone of `map`.
- *
- * @private
- * @param {Object} map The map to clone.
- * @param {Function} cloneFunc The function to clone values.
- * @param {boolean} [isDeep] Specify a deep clone.
- * @returns {Object} Returns the cloned map.
- */
-function cloneMap(map, isDeep, cloneFunc) {
-  var array = isDeep ? cloneFunc(mapToArray(map), CLONE_DEEP_FLAG$2) : mapToArray(map);
-  return arrayReduce(array, addMapEntry, new map.constructor);
-}
-
 /** Used to match `RegExp` flags from their coerced string values. */
 var reFlags = /\w*$/;
 
@@ -2872,54 +2829,6 @@ function cloneRegExp(regexp) {
   var result = new regexp.constructor(regexp.source, reFlags.exec(regexp));
   result.lastIndex = regexp.lastIndex;
   return result;
-}
-
-/**
- * Adds `value` to `set`.
- *
- * @private
- * @param {Object} set The set to modify.
- * @param {*} value The value to add.
- * @returns {Object} Returns `set`.
- */
-function addSetEntry(set, value) {
-  // Don't return `set.add` because it's not chainable in IE 11.
-  set.add(value);
-  return set;
-}
-
-/**
- * Converts `set` to an array of its values.
- *
- * @private
- * @param {Object} set The set to convert.
- * @returns {Array} Returns the values.
- */
-function setToArray(set) {
-  var index = -1,
-      result = Array(set.size);
-
-  set.forEach(function(value) {
-    result[++index] = value;
-  });
-  return result;
-}
-
-/** Used to compose bitmasks for cloning. */
-var CLONE_DEEP_FLAG$3 = 1;
-
-/**
- * Creates a clone of `set`.
- *
- * @private
- * @param {Object} set The set to clone.
- * @param {Function} cloneFunc The function to clone values.
- * @param {boolean} [isDeep] Specify a deep clone.
- * @returns {Object} Returns the cloned set.
- */
-function cloneSet(set, isDeep, cloneFunc) {
-  var array = isDeep ? cloneFunc(setToArray(set), CLONE_DEEP_FLAG$3) : setToArray(set);
-  return arrayReduce(array, addSetEntry, new set.constructor);
 }
 
 /** Used to convert symbols to primitives and strings. */
@@ -2963,16 +2872,15 @@ var uint32Tag$2 = '[object Uint32Array]';
  * Initializes an object clone based on its `toStringTag`.
  *
  * **Note:** This function only supports cloning values with tags of
- * `Boolean`, `Date`, `Error`, `Number`, `RegExp`, or `String`.
+ * `Boolean`, `Date`, `Error`, `Map`, `Number`, `RegExp`, `Set`, or `String`.
  *
  * @private
  * @param {Object} object The object to clone.
  * @param {string} tag The `toStringTag` of the object to clone.
- * @param {Function} cloneFunc The function to clone values.
  * @param {boolean} [isDeep] Specify a deep clone.
  * @returns {Object} Returns the initialized clone.
  */
-function initCloneByTag(object, tag, cloneFunc, isDeep) {
+function initCloneByTag(object, tag, isDeep) {
   var Ctor = object.constructor;
   switch (tag) {
     case arrayBufferTag$2:
@@ -2991,7 +2899,7 @@ function initCloneByTag(object, tag, cloneFunc, isDeep) {
       return cloneTypedArray(object, isDeep);
 
     case mapTag$3:
-      return cloneMap(object, isDeep, cloneFunc);
+      return new Ctor;
 
     case numberTag$2:
     case stringTag$2:
@@ -3001,12 +2909,84 @@ function initCloneByTag(object, tag, cloneFunc, isDeep) {
       return cloneRegExp(object);
 
     case setTag$3:
-      return cloneSet(object, isDeep, cloneFunc);
+      return new Ctor;
 
     case symbolTag$2:
       return cloneSymbol(object);
   }
 }
+
+/** `Object#toString` result references. */
+var mapTag$4 = '[object Map]';
+
+/**
+ * The base implementation of `_.isMap` without Node.js optimizations.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a map, else `false`.
+ */
+function baseIsMap(value) {
+  return isObjectLike(value) && getTag$1(value) == mapTag$4;
+}
+
+/* Node.js helper references. */
+var nodeIsMap = nodeUtil && nodeUtil.isMap;
+
+/**
+ * Checks if `value` is classified as a `Map` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.3.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a map, else `false`.
+ * @example
+ *
+ * _.isMap(new Map);
+ * // => true
+ *
+ * _.isMap(new WeakMap);
+ * // => false
+ */
+var isMap = nodeIsMap ? baseUnary(nodeIsMap) : baseIsMap;
+
+/** `Object#toString` result references. */
+var setTag$4 = '[object Set]';
+
+/**
+ * The base implementation of `_.isSet` without Node.js optimizations.
+ *
+ * @private
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a set, else `false`.
+ */
+function baseIsSet(value) {
+  return isObjectLike(value) && getTag$1(value) == setTag$4;
+}
+
+/* Node.js helper references. */
+var nodeIsSet = nodeUtil && nodeUtil.isSet;
+
+/**
+ * Checks if `value` is classified as a `Set` object.
+ *
+ * @static
+ * @memberOf _
+ * @since 4.3.0
+ * @category Lang
+ * @param {*} value The value to check.
+ * @returns {boolean} Returns `true` if `value` is a set, else `false`.
+ * @example
+ *
+ * _.isSet(new Set);
+ * // => true
+ *
+ * _.isSet(new WeakSet);
+ * // => false
+ */
+var isSet = nodeIsSet ? baseUnary(nodeIsSet) : baseIsSet;
 
 /** Used to compose bitmasks for cloning. */
 var CLONE_DEEP_FLAG$1 = 1;
@@ -3113,7 +3093,7 @@ function baseClone(value, bitmask, customizer, key, object, stack) {
       if (!cloneableTags[tag]) {
         return object ? value : {};
       }
-      result = initCloneByTag(value, tag, baseClone, isDeep);
+      result = initCloneByTag(value, tag, isDeep);
     }
   }
   // Check for circular references and return its corresponding clone.
@@ -3123,6 +3103,16 @@ function baseClone(value, bitmask, customizer, key, object, stack) {
     return stacked;
   }
   stack.set(value, result);
+
+  if (isSet(value)) {
+    value.forEach(function(subValue) {
+      result.add(baseClone(subValue, bitmask, customizer, subValue, value, stack));
+    });
+  } else if (isMap(value)) {
+    value.forEach(function(subValue, key) {
+      result.set(key, baseClone(subValue, bitmask, customizer, key, value, stack));
+    });
+  }
 
   var keysFunc = isFull
     ? (isFlat ? getAllKeysIn : getAllKeys)
@@ -3354,9 +3344,11 @@ function debounce(func, wait, options) {
   function remainingWait(time) {
     var timeSinceLastCall = time - lastCallTime,
         timeSinceLastInvoke = time - lastInvokeTime,
-        result = wait - timeSinceLastCall;
+        timeWaiting = wait - timeSinceLastCall;
 
-    return maxing ? nativeMin(result, maxWait - timeSinceLastInvoke) : result;
+    return maxing
+      ? nativeMin(timeWaiting, maxWait - timeSinceLastInvoke)
+      : timeWaiting;
   }
 
   function shouldInvoke(time) {
@@ -3417,6 +3409,7 @@ function debounce(func, wait, options) {
       }
       if (maxing) {
         // Handle invocations in a tight loop.
+        clearTimeout(timerId);
         timerId = setTimeout(timerExpired, wait);
         return invokeFunc(lastCallTime);
       }
