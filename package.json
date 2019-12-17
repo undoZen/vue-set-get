@@ -1,6 +1,6 @@
 {
   "name": "vue-set-get",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "ractive style set()/get() in vue",
   "files": [
     "dist/index.js"
